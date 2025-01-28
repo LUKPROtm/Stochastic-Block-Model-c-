@@ -26,6 +26,7 @@
 #include <numeric>
 #include "Beta.cpp"
 
+
 using namespace std;
 using namespace Eigen;
 
@@ -50,6 +51,8 @@ private:
     std::vector<double> precalculated_log_gamma_non_edge;
     std::vector<double> precalculated_log_gamma_total;
     std::vector<double> precalculated_log_kx, precalculated_log_int;            // I could remove precalculated_log_int since it is the first row of precalculated_log_kx
+    std::vector<double> precalculated_log_poisson;
+
     std::vector<int> matrix_edges, matrix_non_edges;
     std::vector<double> pre_Vn;
 
@@ -68,7 +71,7 @@ public:
         random_device rd;
         mt19937 gen(rd());
         k = k_init;
-        kmax = n + 40;
+        kmax = n + 2;
     }
 
 
@@ -138,6 +141,11 @@ private:
             }
         }
 
+        precalculated_log_poisson.resize(kmax, 0);
+        for(int kk = 0; kk < kmax; ++kk){
+            precalculated_log_poisson[kk] = -1 - std::lgamma(kk + 1);
+        }
+
         Vn_counter = k + 1;
         pre_Vn.resize(Vn_counter + 1, 0);
         for (int t = 0; t < Vn_counter + 1; ++t) {
@@ -145,6 +153,7 @@ private:
         }
         update_full_edges();
     }
+
 
     void update_Abar() {
         Abar0 = MatrixXi::Zero(k, k);
@@ -388,23 +397,21 @@ private:
 
 
     double Vn(int t) {
-        int kmax = n + 1;
         vector<double> temp(kmax - 1, 0);
-        for (int k = 1; k < kmax; ++k) {
-            if (k < t) {
-                temp[k - 1] = -numeric_limits<double>::infinity();
+        for (int kk = 1; kk < kmax; ++kk) {
+            if (kk < t) {
+                temp[kk - 1] = -numeric_limits<double>::infinity();
             } else {
                 if (t != 0) {
                     for (int x = 0; x < t; ++x) {
-                        temp[k - 1] += precalculated_log_int[k - x];
+                        temp[kk - 1] += precalculated_log_int[kk - x];
                     }
                 }
                 for (int x = 0; x < n; ++x) {
-                    temp[k - 1] -= precalculated_log_kx[k * n + x];
+                    temp[kk - 1] -= precalculated_log_kx[kk * n + x];
                 }
-                // in theory the poisson can have any value... 
-                temp[k - 1] += precalculated_log_int[poisson_distribution<>(1)(gen)];
 
+                temp[kk - 1] += precalculated_log_poisson[kk - 1];
 
             }
         }
